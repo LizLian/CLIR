@@ -137,7 +137,7 @@ class CrossLingualIR:
         Calculate scores from static embeddings and save them to a .pt file
         :param query: query input ids
         :param tgt_docs: target input ids
-        :param lambda_: caling factor that decides the shape of the softmax distribution
+        :param lambda_: scaling factor that decides the shape of the softmax distribution
         """
         tgt_doc_size, query_doc_size = len(tgt_docs), len(query)
         tgt_max_doc_len = max(len(tokens) for tokens in tgt_docs)

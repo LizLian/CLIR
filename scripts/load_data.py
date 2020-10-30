@@ -6,8 +6,7 @@ from torch.utils.data import Dataset
 from collections import namedtuple
 
 instance_fields = ['sentence', 'tokens', 'token_len', 'subwords', 'input_ids']
-Instance = namedtuple('Instance', field_names=instance_fields,
-                      defaults=[None] * len(instance_fields))
+Instance = namedtuple('Instance', field_names=instance_fields, defaults=[None] * len(instance_fields))
 
 
 def preprocess_dataset(file_name: str, word2id: dict, max_seq_len: int=100) -> List[torch.Tensor]:
