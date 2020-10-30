@@ -9,9 +9,10 @@ f1,f2,...,fn are independent of each other
 P(q1|f1)*P(q2|f2)*...*P(qn|fn)
 when ranking relevant documents, the ranking should be not only based on translation,
 but it should also consider semantic similarity
-We could use cosine similarity or take the softmax of the cosine similarity
-P(q|f) = exp(lambda*cosine(q, f))/sum(exp(lambda*cosine(q, f')))    f' takes values from the vocab of foreign doc
-lambda is a scaling factor that decides the shape of distribution of the softmax
+We could use cosine similarity or take the dot product of two word embeddings
+P(q|f) = exp(lambda*cosine(q, f))/sum(exp(lambda*cosine(q, f')))
+in which f' takes values from the vocab of foreign doc
+lambda is a scaling factor that decides the shape of the softmax distribution
 """
 
 import torch, logging, argparse
@@ -34,7 +35,8 @@ def get_parser():
 
 
 def token_lens_to_idxs(token_lens):
-    """Map token lengths to a word piece index matrix (for torch.gather) and a
+    """ This function is taken from ONEIE implementation
+    Map token lengths to a word piece index matrix (for torch.gather) and a
     mask tensor.
     For example (only show a sequence instead of a batch):
 
@@ -92,7 +94,6 @@ class CrossLingualIR:
         load pretrained embeddings from a text file
         :param embedding_file: name of the embedding file
         :param query: True if it is query word embeddings
-        :return:
         """
         weights = []
         word2id = {"$unk$": 0}
@@ -132,6 +133,12 @@ class CrossLingualIR:
         return embeddings, word2id, id2word
 
     def get_similarity_scores_static(self, query: List[int], tgt_docs: List[List[int]], lambda_: int=1) -> None:
+        """
+        Calculate scores from static embeddings and save them to a .pt file
+        :param query: query input ids
+        :param tgt_docs: target input ids
+        :param lambda_: caling factor that decides the shape of the softmax distribution
+        """
         tgt_doc_size, query_doc_size = len(tgt_docs), len(query)
         tgt_max_doc_len = max(len(tokens) for tokens in tgt_docs)
         tgt_embeddings = torch.zeros((tgt_doc_size, tgt_max_doc_len, self.emb_dim))
@@ -159,6 +166,9 @@ class CrossLingualIR:
         self.scores_static = scores
 
     def get_embeddings_contextualized(self, dataset: CLIRDataset) -> torch.Tensor:
+        """
+        Compute average contextualized embeddings for multi-piece words
+        """
         # encoded input sentences with XLMRoberta
         model = XLMRobertaModel.from_pretrained('xlm-roberta-base',
                                                 output_hidden_states=True)
@@ -182,6 +192,9 @@ class CrossLingualIR:
 
     def get_similarity_scores_contextualized(self, query_dataset: CLIRDataset, tgt_dataset: CLIRDataset,
                                              lambda_: int = 1) -> torch.Tensor:
+        """
+        Compute scores with contextualized embeddings and save them to a .pt file
+        """
         # encoded input sentences with XLMRoberta
         self.tgt_sents_contextualized = [t.tokens for t in tgt_dataset.data]
         tgt_embeddings = self.get_embeddings_contextualized(tgt_dataset)  # shape (batch_size, max_seq_len, emb_dim)
@@ -226,7 +239,7 @@ class CrossLingualIR:
         self.probs_static = probs
         return probs
 
-    def get_top_docs(self, k: int=5, static: bool=True):
+    def get_top_docs(self, k: int=5, static: bool=True) -> None:
         query_sents = self.query_sents_static if static else self.query_sents_contextualized
         tgt_sents = self.tgt_sents_static if static else self.tgt_sents_contextualized
         probs = self.probs_static if static else self.probs_contextualized
